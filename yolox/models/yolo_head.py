@@ -388,7 +388,9 @@ class YOLOXHead(nn.Module):
                 num_fg += num_fg_img
 
                 cls_target = F.one_hot(
-                    # one_hot的值乘以软标签(iou)
+                    # pred_ious_this_matching：one_hot的值乘以软标签(iou)
+                    # 软标签，原来是one_hot，只有一个1，其余都是0，
+                    # 现在是1对应位置乘以iou的值，表示不是得满分，只有iou分
                     gt_matched_classes.to(torch.int64), self.num_classes
                 ) * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask.unsqueeze(-1)
@@ -509,6 +511,7 @@ class YOLOXHead(nn.Module):
             bboxes_preds_per_image = bboxes_preds_per_image.cpu()
 
         # iou ---pair_wise_ious.shape = [5,3538]
+        # 对每个真值和候选框求iou
         pair_wise_ious = bboxes_iou(gt_bboxes_per_image, bboxes_preds_per_image, False)
 
         gt_cls_per_image = (
@@ -518,6 +521,7 @@ class YOLOXHead(nn.Module):
                 .unsqueeze(1)
                 .repeat(1, num_in_boxes_anchor, 1)
         )
+        # iouLoss
         pair_wise_ious_loss = -torch.log(pair_wise_ious + 1e-8)
 
         if mode == "cpu":
@@ -528,6 +532,7 @@ class YOLOXHead(nn.Module):
                     cls_preds_.float().unsqueeze(0).repeat(num_gt, 1, 1).sigmoid_()
                     * obj_preds_.float().unsqueeze(0).repeat(num_gt, 1, 1).sigmoid_()
             )
+            # 对每个真值和候选框求交叉熵损失---分类
             pair_wise_cls_loss = F.binary_cross_entropy(
                 # 5个groundtrus,每个groundtrus用80个onehot的值表示类别
                 # 3538个点,每个点用80个预测值表示类别
@@ -697,6 +702,7 @@ class YOLOXHead(nn.Module):
 
         # anchor_matching_gt:如果matching_matrix求和大于1,则表示一个anchor_point被两个groundtrus匹配上
         anchor_matching_gt = matching_matrix.sum(0)
+        # 多个GT匹配到一个anchor_point
         if (anchor_matching_gt > 1).sum() > 0:
             # 重新分配,哪个groundtrus的cost越小就分配给哪个groundtrus
             _, cost_argmin = torch.min(cost[:, anchor_matching_gt > 1], dim=0)

@@ -158,6 +158,7 @@ class Predictor(object):
             outputs = self.model(img)
             if self.decoder is not None:
                 outputs = self.decoder(outputs, dtype=outputs.type())
+                # 后处理
             outputs = postprocess(
                 outputs, self.num_classes, self.confthre,
                 self.nmsthre, class_agnostic=True
@@ -280,8 +281,10 @@ def main(exp, args):
         else:
             ckpt_file = args.ckpt
         logger.info("loading checkpoint")
+        # ckpt：读取权重
         ckpt = torch.load(ckpt_file, map_location="cpu")
         # load the model state dict
+        # 把权重放到模型里面
         model.load_state_dict(ckpt["model"])
         logger.info("loaded checkpoint done.")
 
