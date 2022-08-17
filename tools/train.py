@@ -94,6 +94,12 @@ def make_parser():
         default=None,
         nargs=argparse.REMAINDER,
     )
+    parser.add_argument(
+        "--exp_name",
+        type=str,
+        default="default",
+
+    )
     return parser
 
 

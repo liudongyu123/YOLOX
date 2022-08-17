@@ -41,7 +41,7 @@ ln -s /path/to/your/COCO ./datasets/COCO
 Step2. Reproduce our results on COCO by specifying -n:
 
 ```shell
-python -m yolox.tools.train -n yolox-s -d 8 -b 64 --fp16 -o [--cache]
+python -m yolox.tools.train -n yolox-s -d 1 -b 32 --fp16 -o --exp_name test
                                yolox-m
                                yolox-l
                                yolox-x
@@ -50,6 +50,7 @@ python -m yolox.tools.train -n yolox-s -d 8 -b 64 --fp16 -o [--cache]
 * -b: total batch size, the recommended number for -b is num-gpu * 8
 * --fp16: mixed precision training
 * --cache: caching imgs into RAM to accelarate training, which need large system RAM. 
+* --exp_name:tensorboard info
 
   
 

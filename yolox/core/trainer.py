@@ -82,14 +82,14 @@ class Trainer:
     def train_in_epoch(self):
         for self.epoch in range(self.start_epoch, self.max_epoch):
             self.before_epoch()
-            self.train_in_iter()
+            self.train_in_iter(self.epoch)
             self.after_epoch()
 
-    def train_in_iter(self):
+    def train_in_iter(self, current_epoch):
         for self.iter in range(self.max_iter):
             self.before_iter()
             self.train_one_iter()
-            self.after_iter()
+            self.after_iter(current_epoch)
 
     def train_one_iter(self):
         iter_start_time = time.time()
@@ -184,7 +184,7 @@ class Trainer:
         # Tensorboard and Wandb loggers
         if self.rank == 0:
             if self.args.logger == "tensorboard":
-                self.tblogger = SummaryWriter(os.path.join(self.file_name, "tensorboard"))
+                self.tblogger = SummaryWriter(os.path.join(self.file_name, "tensorboard", self.args.exp_name))
             elif self.args.logger == "wandb":
                 self.wandb_logger = WandbLogger.initialize_wandb_logger(
                     self.args,
@@ -230,7 +230,7 @@ class Trainer:
     def before_iter(self):
         pass
 
-    def after_iter(self):
+    def after_iter(self, current_epoch):
         """
         `after_iter` contains two parts of logic:
             * log information
@@ -274,6 +274,16 @@ class Trainer:
                         "train/lr": self.meter["lr"].latest
                     })
                     self.wandb_logger.log_metrics(metrics, step=self.progress_in_iter)
+                elif self.args.logger == "tensorboard":
+                    # 画图---"total_loss"：纵坐标是loss值，横坐标是迭代次数
+                    self.tblogger.add_scalar("total_loss", loss_meter["total_loss"].latest,
+                                             self.max_iter * current_epoch + self.iter + 1)
+                    self.tblogger.add_scalar("iou_loss", loss_meter["iou_loss"].latest,
+                                             self.max_iter * current_epoch + self.iter + 1)
+                    self.tblogger.add_scalar("conf_loss", loss_meter["conf_loss"].latest,
+                                             self.max_iter * current_epoch + self.iter + 1)
+                    self.tblogger.add_scalar("cls_loss", loss_meter["cls_loss"].latest,
+                                             self.max_iter * current_epoch + self.iter + 1)
 
             self.meter.clear_meters()
 
