@@ -57,6 +57,7 @@ class COCODataset(Dataset):
         """
         super().__init__(img_size)
         if data_dir is None:
+            # 如果设置了data_dir就不用设置软连接了
             data_dir = os.path.join(get_yolox_datadir(), "COCO")
         self.data_dir = data_dir
         self.json_file = json_file
@@ -169,7 +170,7 @@ class COCODataset(Dataset):
             res[ix, 4] = cls
 
         r = min(self.img_size[0] / height, self.img_size[1] / width)
-        # 图像做ｒｅｓｉｚｅ，ｂｏｘ也要做ｒｅｓｉｚｅ
+        # 图像做ｒｅｓｉｚｅ，ｂｏｘ也要做resize
         res[:, :4] *= r
 
         img_info = (height, width)

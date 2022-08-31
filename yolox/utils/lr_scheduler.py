@@ -28,6 +28,7 @@ class LRScheduler:
 
         self.__dict__.update(kwargs)
 
+        # _get_lr_func---调整学习率，name是决定选用哪个学习率衰减策略
         self.lr_func = self._get_lr_func(name)
 
     def update_lr(self, iters):
@@ -72,6 +73,7 @@ class LRScheduler:
                 self.total_epochs - self.semi_epoch - self.no_aug_epochs
             )
             lr_func = partial(
+                # partial的作用是使下面这些参数固定，只把yolox_semi_warm_cos_lr里面的参数留在外面，修改方便
                 yolox_semi_warm_cos_lr,
                 self.lr,
                 min_lr_ratio,
@@ -84,6 +86,7 @@ class LRScheduler:
                 self.iters_per_epoch,
                 self.iters_per_epoch_semi,
             )
+            
         elif name == "multistep":  # stepwise lr schedule
             milestones = [
                 int(self.total_iters * milestone / self.total_epochs)

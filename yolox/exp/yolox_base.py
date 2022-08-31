@@ -114,6 +114,8 @@ class Exp(BaseExp):
             for m in M.modules():
                 if isinstance(m, nn.BatchNorm2d):
                     # BN计算
+	            # BN的参数:affine=True,表示要把scale和shape拉到合适的区间，增加表达能力
+	            #（重点）track_running_stats=True,表示当前均值和方差要和历史的均值方差有关系
                     # eps：求均值、方差、减均值除标准差，避免除数是0，加入一个eps放在分母
                     # momentum：和BN计算历史的值有关系而设置的系数
                     m.eps = 1e-3
@@ -220,9 +222,12 @@ class Exp(BaseExp):
         return input_size
 
     def preprocess(self, inputs, targets, tsize):
+        # 把图片resize成网络所需要的大小
+        # tsize：网络需要输入的尺寸，input_size：网络当前的尺寸
         scale_y = tsize[0] / self.input_size[0]
         scale_x = tsize[1] / self.input_size[1]
         if scale_x != 1 or scale_y != 1:
+            # 一般不会进入这个if,因为在前面数据增强时就已经把图片整成640*640了
             inputs = nn.functional.interpolate(
                 inputs, size=tsize, mode="bilinear", align_corners=False
             )
@@ -245,7 +250,7 @@ class Exp(BaseExp):
                 if hasattr(v, "bias") and isinstance(v.bias, nn.Parameter):
                     pg2.append(v.bias)  # biases
                 if isinstance(v, nn.BatchNorm2d) or "bn" in k:
-                    pg0.append(v.weight)  # no decay
+                    pg0.append(v.weight)  # no decay---BN的weight
                 elif hasattr(v, "weight") and isinstance(v.weight, nn.Parameter):
                     pg1.append(v.weight)  # apply decay---卷积的weight
 
@@ -264,6 +269,7 @@ class Exp(BaseExp):
         from yolox.utils import LRScheduler
 
         scheduler = LRScheduler(
+            # 管理学习率的衰减
             self.scheduler,
             lr,
             iters_per_epoch,

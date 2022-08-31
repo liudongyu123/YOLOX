@@ -26,6 +26,7 @@ class YOLOPAFPN(nn.Module):
         super().__init__()
         self.backbone = CSPDarknet(depth, width, depthwise=depthwise, act=act)
         self.in_features = in_features
+        # in_channels：三个分支，检测头
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv
 

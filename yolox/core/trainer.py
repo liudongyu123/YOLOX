@@ -87,6 +87,7 @@ class Trainer:
 
     def train_in_iter(self, current_epoch):
         for self.iter in range(self.max_iter):
+            # self.max_iter：做多少次迭代---图片的总量除以batch_size
             self.before_iter()
             self.train_one_iter()
             self.after_iter(current_epoch)
@@ -151,6 +152,7 @@ class Trainer:
         # self.max_epoch - self.exp.no_aug_epochs == 285
         # 如果epoch数量超过285就不要再做数据增强
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
+        # get_data_loader---读取数据
         self.train_loader = self.exp.get_data_loader(
             batch_size=self.args.batch_size,
             is_distributed=self.is_distributed,
@@ -161,9 +163,11 @@ class Trainer:
         # DataPrefetcher: 快速读取数据
         self.prefetcher = DataPrefetcher(self.train_loader)
         # max_iter means iters per epoch
+        # 每个epoch要迭代多少次
         self.max_iter = len(self.train_loader)
 
         self.lr_scheduler = self.exp.get_lr_scheduler(
+            # 当改动batch_size时学习率也会跟着变化，不需要手动调
             self.exp.basic_lr_per_img * self.args.batch_size, self.max_iter
         )
         if self.args.occupy:
