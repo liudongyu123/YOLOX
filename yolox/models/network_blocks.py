@@ -194,13 +194,10 @@ class Focus(nn.Module):
 
     def forward(self, x):
         # shape of x (b,c,w,h) -> y(b,4c,w/2,h/2)
-        # 偶数列偶数行保存在patch_top_left里面
-        # 偶数列奇数行保存在patch_top_right里面
         patch_top_left = x[..., ::2, ::2]
         patch_top_right = x[..., ::2, 1::2]
         patch_bot_left = x[..., 1::2, ::2]
         patch_bot_right = x[..., 1::2, 1::2]
-        # 变成12通道(原来4倍)，宽和高都变为原来的1/4，640*640->160*160
         x = torch.cat(
             (
                 patch_top_left,

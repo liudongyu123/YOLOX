@@ -67,7 +67,7 @@ class Trainer:
             self.file_name,
             distributed_rank=self.rank,
             filename="train_log.txt",
-            mode="a",
+            mode="o",
         )
 
     def train(self):
@@ -87,20 +87,17 @@ class Trainer:
 
     def train_in_iter(self, current_epoch):
         for self.iter in range(self.max_iter):
-            # self.max_iter：做多少次迭代---图片的总量除以batch_size
             self.before_iter()
             self.train_one_iter()
             self.after_iter(current_epoch)
 
     def train_one_iter(self):
         iter_start_time = time.time()
-        # prefetcher; 读取数据---马赛克数据增强在.next()时就已经做了、
-        # 在yolox->data->datasets->mosaicdetection里面
+
         inps, targets = self.prefetcher.next()
         inps = inps.to(self.data_type)
         targets = targets.to(self.data_type)
         targets.requires_grad = False
-        # preprocess:预处理、将图片和标签都处理成640*640大小
         inps, targets = self.exp.preprocess(inps, targets, self.input_size)
         data_end_time = time.time()
 
@@ -141,18 +138,14 @@ class Trainer:
         )
         model.to(self.device)
 
-        # solver related init  --- 优化器
+        # solver related init
         self.optimizer = self.exp.get_optimizer(self.args.batch_size)
 
         # value of epoch will be set in `resume_train`
-        # 如果训练到一半停止可以接着进行训练
         model = self.resume_train(model)
 
         # data related init
-        # self.max_epoch - self.exp.no_aug_epochs == 285
-        # 如果epoch数量超过285就不要再做数据增强
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
-        # get_data_loader---读取数据
         self.train_loader = self.exp.get_data_loader(
             batch_size=self.args.batch_size,
             is_distributed=self.is_distributed,
@@ -160,14 +153,11 @@ class Trainer:
             cache_img=self.args.cache,
         )
         logger.info("init prefetcher, this might take one minute or less...")
-        # DataPrefetcher: 快速读取数据
         self.prefetcher = DataPrefetcher(self.train_loader)
         # max_iter means iters per epoch
-        # 每个epoch要迭代多少次
         self.max_iter = len(self.train_loader)
 
         self.lr_scheduler = self.exp.get_lr_scheduler(
-            # 当改动batch_size时学习率也会跟着变化，不需要手动调
             self.exp.basic_lr_per_img * self.args.batch_size, self.max_iter
         )
         if self.args.occupy:
@@ -175,26 +165,26 @@ class Trainer:
 
         if self.is_distributed:
             model = DDP(model, device_ids=[self.local_rank], broadcast_buffers=False)
-        # use_model_ema：在验证集上使用---当前权重和历史权重的一个加权平均，效果更好一些
+
         if self.use_model_ema:
             self.ema_model = ModelEMA(model, 0.9998)
             self.ema_model.updates = self.max_iter * self.start_epoch
 
         self.model = model
-        # self.exp.get_evaluator：验证集精度的一些东西
+
         self.evaluator = self.exp.get_evaluator(
             batch_size=self.args.batch_size, is_distributed=self.is_distributed
         )
         # Tensorboard and Wandb loggers
         if self.rank == 0:
             if self.args.logger == "tensorboard":
-                self.tblogger = SummaryWriter(os.path.join(self.file_name, "tensorboard", self.args.exp_name))
+                self.tblogger = SummaryWriter(os.path.join(self.file_name, "tensorboard"))
             elif self.args.logger == "wandb":
-                self.wandb_logger = WandbLogger.initialize_wandb_logger(
-                    self.args,
-                    self.exp,
-                    self.evaluator.dataloader.dataset
-                )
+                wandb_params = dict()
+                for k, v in zip(self.args.opts[0::2], self.args.opts[1::2]):
+                    if k.startswith("wandb-"):
+                        wandb_params.update({k[len("wandb-"):]: v})
+                self.wandb_logger = WandbLogger(config=vars(self.exp), **wandb_params)
             else:
                 raise ValueError("logger must be either 'tensorboard' or 'wandb'")
 
@@ -273,22 +263,20 @@ class Trainer:
 
             if self.rank == 0:
                 if self.args.logger == "wandb":
-                    metrics = {"train/" + k: v.latest for k, v in loss_meter.items()}
-                    metrics.update({
-                        "train/lr": self.meter["lr"].latest
-                    })
-                    self.wandb_logger.log_metrics(metrics, step=self.progress_in_iter)
+                    self.wandb_logger.log_metrics({k: v.latest for k, v in loss_meter.items()})
+                    self.wandb_logger.log_metrics({"lr": self.meter["lr"].latest})
                 elif self.args.logger == "tensorboard":
-                    # 画图---"total_loss"：纵坐标是loss值，横坐标是迭代次数
-                    self.tblogger.add_scalar("total_loss", loss_meter["total_loss"].latest,
-                                             self.max_iter * current_epoch + self.iter + 1)
-                    self.tblogger.add_scalar("iou_loss", loss_meter["iou_loss"].latest,
-                                             self.max_iter * current_epoch + self.iter + 1)
-                    self.tblogger.add_scalar("conf_loss", loss_meter["conf_loss"].latest,
-                                             self.max_iter * current_epoch + self.iter + 1)
-                    self.tblogger.add_scalar("cls_loss", loss_meter["cls_loss"].latest,
-                                             self.max_iter * current_epoch + self.iter + 1)
-
+                    self.tblogger.add_scalar("total_loss", loss_meter['total_loss'].latest, 
+                                                                self.max_iter*current_epoch+self.iter+1)
+                    self.tblogger.add_scalar("iou_loss", loss_meter['iou_loss'].latest, 
+                                                                self.max_iter*current_epoch+self.iter+1)
+                    self.tblogger.add_scalar("conf_loss", loss_meter['conf_loss'].latest,
+                                                                self.max_iter*current_epoch+self.iter+1)
+                    self.tblogger.add_scalar("cls_loss", loss_meter['cls_loss'].latest, 
+                                                                self.max_iter*current_epoch+self.iter+1)
+                    self.tblogger.add_scalar("l1_loss", loss_meter['l1_loss'].latest, 
+                                                                self.max_iter*current_epoch+self.iter+1)
+                    self.tblogger.add_scalar('lr', self.meter["lr"].latest, self.max_iter*current_epoch+self.iter+1)
             self.meter.clear_meters()
 
         # random resizing
@@ -308,9 +296,9 @@ class Trainer:
                 ckpt_file = os.path.join(self.file_name, "latest" + "_ckpt.pth")
             else:
                 ckpt_file = self.args.ckpt
-            # 核心代码 torch.load
+
             ckpt = torch.load(ckpt_file, map_location=self.device)
-            # resume the model/optimizer state dict----恢复模型/优化器状态dict
+            # resume the model/optimizer state dict
             model.load_state_dict(ckpt["model"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
             self.best_ap = ckpt.pop("best_ap", 0)
@@ -345,8 +333,8 @@ class Trainer:
                 evalmodel = evalmodel.module
 
         with adjust_status(evalmodel, training=False):
-            (ap50_95, ap50, summary), predictions = self.exp.eval(
-                evalmodel, self.evaluator, self.is_distributed, return_outputs=True
+            ap50_95, ap50, summary = self.exp.eval(
+                evalmodel, self.evaluator, self.is_distributed
             )
 
         update_best_ckpt = ap50_95 > self.best_ap
@@ -360,17 +348,16 @@ class Trainer:
                 self.wandb_logger.log_metrics({
                     "val/COCOAP50": ap50,
                     "val/COCOAP50_95": ap50_95,
-                    "train/epoch": self.epoch + 1,
+                    "epoch": self.epoch + 1,
                 })
-                self.wandb_logger.log_images(predictions)
             logger.info("\n" + summary)
         synchronize()
 
-        self.save_ckpt("last_epoch", update_best_ckpt, ap=ap50_95)
+        self.save_ckpt("last_epoch", update_best_ckpt)
         if self.save_history_ckpt:
-            self.save_ckpt(f"epoch_{self.epoch + 1}", ap=ap50_95)
+            self.save_ckpt(f"epoch_{self.epoch + 1}")
 
-    def save_ckpt(self, ckpt_name, update_best_ckpt=False, ap=None):
+    def save_ckpt(self, ckpt_name, update_best_ckpt=False):
         if self.rank == 0:
             save_model = self.ema_model.ema if self.use_model_ema else self.model
             logger.info("Save weights to {}".format(self.file_name))
@@ -379,7 +366,6 @@ class Trainer:
                 "model": save_model.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
                 "best_ap": self.best_ap,
-                "curr_ap": ap,
             }
             save_checkpoint(
                 ckpt_state,
@@ -389,14 +375,4 @@ class Trainer:
             )
 
             if self.args.logger == "wandb":
-                self.wandb_logger.save_checkpoint(
-                    self.file_name,
-                    ckpt_name,
-                    update_best_ckpt,
-                    metadata={
-                        "epoch": self.epoch + 1,
-                        "optimizer": self.optimizer.state_dict(),
-                        "best_ap": self.best_ap,
-                        "curr_ap": ap
-                    }
-                )
+                self.wandb_logger.save_checkpoint(self.file_name, ckpt_name, update_best_ckpt)

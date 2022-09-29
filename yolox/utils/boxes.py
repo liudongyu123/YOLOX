@@ -31,7 +31,6 @@ def filter_box(output, scale_range):
 
 def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45, class_agnostic=False):
     box_corner = prediction.new(prediction.shape)
-    # 转换成左上角和右下角坐标，因为NMS要算iou，后面画图也需要
     box_corner[:, :, 0] = prediction[:, :, 0] - prediction[:, :, 2] / 2
     box_corner[:, :, 1] = prediction[:, :, 1] - prediction[:, :, 3] / 2
     box_corner[:, :, 2] = prediction[:, :, 0] + prediction[:, :, 2] / 2
@@ -45,38 +44,29 @@ def postprocess(prediction, num_classes, conf_thre=0.7, nms_thre=0.45, class_agn
         if not image_pred.size(0):
             continue
         # Get score and class with highest confidence
-        # class_conf：第5个通道-第84个通道
         class_conf, class_pred = torch.max(image_pred[:, 5: 5 + num_classes], 1, keepdim=True)
-        # 第4个通道与第5个通道-第84个通道做乘积
-        # ---obj概率（是否有物体）和每个类别概率（类别是什么）做乘积，做为最后的置信度
+
         conf_mask = (image_pred[:, 4] * class_conf.squeeze() >= conf_thre).squeeze()
         # Detections ordered as (x1, y1, x2, y2, obj_conf, class_conf, class_pred)
         detections = torch.cat((image_pred[:, :5], class_conf, class_pred.float()), 1)
-        # 对置信度大于conf_thre的值进行过滤
         detections = detections[conf_mask]
         if not detections.size(0):
             continue
-        # NMS
+
         if class_agnostic:
-            # 不关注类别，重叠就会过滤掉
-            # nms_out_index：经过NMS之后得到的索引
             nms_out_index = torchvision.ops.nms(
-                # 左上角坐标，右下角坐标
                 detections[:, :4],
-                # 置信度
                 detections[:, 4] * detections[:, 5],
-                # 阈值---超参（自己定义）
                 nms_thre,
             )
         else:
             nms_out_index = torchvision.ops.batched_nms(
-                # 关注类别，重叠也不会过滤掉
                 detections[:, :4],
                 detections[:, 4] * detections[:, 5],
                 detections[:, 6],
                 nms_thre,
             )
-        # 经过NMS之后再进行过滤
+
         detections = detections[nms_out_index]
         if output[i] is None:
             output[i] = detections

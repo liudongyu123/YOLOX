@@ -1,0 +1,36 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "train_COCO",
+            "type": "python",
+            "request": "launch",
+            "module": "yolox.tools.train",
+            "justMyCode": true,
+            "args": [
+                "-n","yolox-s",
+                "-d","1",
+                "-b","32",
+                "--fp16",
+                "-o",
+                "--exp_name","test"
+            ]
+        },
+        {
+            "name": "train_COCO_epoch_300",
+            "type": "python",
+            "request": "launch",
+            "module": "yolox.tools.train",
+            "justMyCode": true,
+            "args": [
+                "-n","epoch_300_ckpt",
+                "-d","1",
+                "-b","32",
+                "--fp16",
+                "-o",
+                "--exp_name","test"
+            ]
+        }
+    ]
+}

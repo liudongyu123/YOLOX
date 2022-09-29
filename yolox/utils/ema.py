@@ -41,7 +41,6 @@ class ModelEMA:
         self.ema = deepcopy(model.module if is_parallel(model) else model).eval()
         self.updates = updates
         # decay exponential ramp (to help early epochs)
-        # decay：两边系数的选择
         self.decay = lambda x: decay * (1 - math.exp(-x / 2000))
         for p in self.ema.parameters():
             p.requires_grad_(False)
@@ -55,7 +54,6 @@ class ModelEMA:
             msd = (
                 model.module.state_dict() if is_parallel(model) else model.state_dict()
             )  # model state_dict
-            # 当前权重和历史权重进行加权平均
             for k, v in self.ema.state_dict().items():
                 if v.dtype.is_floating_point:
                     v *= d

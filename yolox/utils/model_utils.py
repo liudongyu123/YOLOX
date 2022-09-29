@@ -8,6 +8,7 @@ from typing import Sequence
 
 import torch
 import torch.nn as nn
+from thop import profile
 
 __all__ = [
     "fuse_conv_and_bn",
@@ -20,9 +21,7 @@ __all__ = [
 
 
 def get_model_info(model: nn.Module, tsize: Sequence[int]) -> str:
-    from thop import profile
-
-    stride = 64
+    stride = 128
     img = torch.zeros((1, 3, stride, stride), device=next(model.parameters()).device)
     flops, params = profile(deepcopy(model), inputs=(img,), verbose=False)
     params /= 1e6

@@ -12,6 +12,6 @@ class Exp(MyExp):
         super(Exp, self).__init__()
         self.depth = 0.33
         self.width = 0.50
-        # self.exp_name:存储实验的名字
-        # os.path.split(os.path.realpath(__file__))[1].split(".")[0] == "yolox_s"
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
+        self.data_num_workers = 16
+        self.max_epoch = 20

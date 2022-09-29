@@ -28,13 +28,11 @@ class LRScheduler:
 
         self.__dict__.update(kwargs)
 
-        # _get_lr_func---调整学习率，name是决定选用哪个学习率衰减策略
         self.lr_func = self._get_lr_func(name)
 
     def update_lr(self, iters):
         return self.lr_func(iters)
 
-    # _get_lr_func()：调整学习率的函数
     def _get_lr_func(self, name):
         if name == "cos":  # cosine lr schedule
             lr_func = partial(cos_lr, self.lr, self.total_iters)
@@ -48,7 +46,6 @@ class LRScheduler:
                 warmup_total_iters,
                 warmup_lr_start,
             )
-            # 本质：调用yoloxwarmcos方法
         elif name == "yoloxwarmcos":
             warmup_total_iters = self.iters_per_epoch * self.warmup_epochs
             no_aug_iters = self.iters_per_epoch * self.no_aug_epochs
@@ -73,7 +70,6 @@ class LRScheduler:
                 self.total_epochs - self.semi_epoch - self.no_aug_epochs
             )
             lr_func = partial(
-                # partial的作用是使下面这些参数固定，只把yolox_semi_warm_cos_lr里面的参数留在外面，修改方便
                 yolox_semi_warm_cos_lr,
                 self.lr,
                 min_lr_ratio,
@@ -86,7 +82,6 @@ class LRScheduler:
                 self.iters_per_epoch,
                 self.iters_per_epoch_semi,
             )
-            
         elif name == "multistep":  # stepwise lr schedule
             milestones = [
                 int(self.total_iters * milestone / self.total_epochs)

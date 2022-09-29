@@ -84,8 +84,7 @@ def make_parser():
         "-l",
         "--logger",
         type=str,
-        help="Logger to be used for metrics. \
-        Implemented loggers include `tensorboard` and `wandb`.",
+        help="Logger to be used for metrics",
         default="tensorboard"
     )
     parser.add_argument(
@@ -94,12 +93,7 @@ def make_parser():
         default=None,
         nargs=argparse.REMAINDER,
     )
-    parser.add_argument(
-        "--exp_name",
-        type=str,
-        default="default",
 
-    )
     return parser
 
 
@@ -127,14 +121,12 @@ def main(exp: Exp, args):
 if __name__ == "__main__":
     configure_module()
     args = make_parser().parse_args()
-    # args.exp_file 为空，args.name为'yolox-s'
     exp = get_exp(args.exp_file, args.name)
     exp.merge(args.opts)
 
     if not args.experiment_name:
         args.experiment_name = exp.exp_name
 
-    # num_gpu== 1 代表在gpu上跑
     num_gpu = get_num_devices() if args.devices is None else args.devices
     assert num_gpu <= get_num_devices()
 

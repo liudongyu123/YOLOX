@@ -31,7 +31,6 @@ class YOLOX(nn.Module):
 
         if self.training:
             assert targets is not None
-            # fpn_outs：FPN的输出，x：输入的图片
             loss, iou_loss, conf_loss, cls_loss, l1_loss, num_fg = self.head(
                 fpn_outs, targets, x
             )

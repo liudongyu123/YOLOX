@@ -44,6 +44,12 @@ class IOUloss(nn.Module):
             area_c = torch.prod(c_br - c_tl, 1)
             giou = iou - (area_c - area_u) / area_c.clamp(1e-16)
             loss = 1 - giou.clamp(min=-1.0, max=1.0)
+        elif self.loss_type == 'diou':
+            pass
+
+        
+
+
 
         if self.reduction == "mean":
             loss = loss.mean()
